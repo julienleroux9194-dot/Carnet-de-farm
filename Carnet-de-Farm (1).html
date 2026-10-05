@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carnet de Farm</title>
+<style>
+/* Layout: ambiance auberge au coin du feu, volontairement épurée. En-tête avec l'œuf, onglets, un panneau à la fois. Le Bilan ouvre la page. Pendant un run, le formulaire se réduit à l'essentiel. Fonctionne hors ligne : aucune ressource externe. */
+:root{
+  --bg:#17130f; --glow:#2c2216; --surface:#211b15; --surface-2:#2a231b; --ink:#f3e9d3; --muted:#b9aa90; --line:#3b3226;
+  --accent:#e9b44c; --accent-ink:#2a1a05; --gold:#e9b44c; --good:#7fd6a4; --bad:#f08a6e; --bar-bg:#352c20;
+  --f-display:'Baloo 2','Trebuchet MS','Segoe UI',system-ui,sans-serif;
+  --f-body:'Nunito','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3e9d4; --glow:#fff6df; --surface:#fcf6e8; --surface-2:#f4ead3; --ink:#2b2015; --muted:#76664d; --line:#dfd1b4;
+    --accent:#9d6209; --accent-ink:#fff8e8; --gold:#9d6209; --good:#2a7a52; --bad:#b4472f; --bar-bg:#e8dcc1;
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f3e9d4; --glow:#fff6df; --surface:#fcf6e8; --surface-2:#f4ead3; --ink:#2b2015; --muted:#76664d; --line:#dfd1b4;
+  --accent:#9d6209; --accent-ink:#fff8e8; --gold:#9d6209; --good:#2a7a52; --bad:#b4472f; --bar-bg:#e8dcc1;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background-color:var(--bg);background-image:radial-gradient(900px 380px at 50% -140px,var(--glow),transparent);background-repeat:no-repeat;color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 56px}
+.wrap{max-width:780px;margin-inline:auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:1.9rem;font-weight:800}
+h2{font-size:1.15rem;font-weight:700}
+.muted{color:var(--muted)} .small{font-size:.84rem}
+.cap{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.pos{color:var(--good)} .neg{color:var(--bad)} .gold{color:var(--gold)}
+.n{font-variant-numeric:tabular-nums}
+
+header.top{display:flex;align-items:center;gap:14px}
+header.top svg{flex:none}
+header.top p{margin:0}
+header.top .grow{flex:1;min-width:0}
+.badge{font-size:.78rem;font-weight:700;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;white-space:nowrap}
+.badge.ok{color:var(--good)} .badge.warn{color:var(--bad);border-color:var(--bad)}
+@media (max-width:520px){header.top{flex-wrap:wrap}}
+
+.banner{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--surface-2);border:1px dashed var(--line);border-radius:16px;padding:11px 16px}
+.banner p{margin:0;min-width:0}
+.banner.warn{border-color:var(--gold)}
+#banner{display:flex;flex-direction:column;gap:8px}
+#banner:empty{display:none}
+
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;overflow-x:auto}
+.tabs button{flex:1 0 auto;border:0;background:transparent;color:var(--muted);font:700 .92rem var(--f-body);padding:9px 16px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.tabs button:hover:not([aria-selected="true"]){color:var(--ink);background:var(--surface-2)}
+
+.panel{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 26px rgba(0,0,0,.14)}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+
+details>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"+";color:var(--muted);font:800 1.2rem var(--f-body);flex:none;width:18px;text-align:center}
+details[open]>summary::after{content:"\2013"}
+details>summary>.sum{flex:1;display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0}
+.foldline{background:var(--surface-2);border-radius:14px;padding:12px 16px}
+.fold-body{margin-top:14px;display:flex;flex-direction:column;gap:12px}
+
+.hero{gap:6px}
+.hero-num{font-family:var(--f-display);font-weight:800;font-size:3.1rem;line-height:1.05;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.hero-num small{font-size:1.1rem;font-weight:600;color:var(--muted)}
+.hero-sub{font-size:1rem}
+.minis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:10px}
+.mini{background:var(--surface-2);border-radius:14px;padding:10px 14px;min-width:0}
+.mini .v{font-family:var(--f-display);font-weight:700;font-size:1.25rem;overflow-wrap:anywhere}
+
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.dcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 26px rgba(0,0,0,.14)}
+.dhead{display:flex;align-items:center;gap:12px;min-width:0}
+.gem{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:800 1.15rem var(--f-display);color:#1a1108;box-shadow:0 2px 0 rgba(0,0,0,.25),0 0 0 3px var(--surface-2)}
+.dname{font-family:var(--f-display);font-weight:700;font-size:1.1rem;overflow-wrap:anywhere;min-width:0}
+.davg{font-family:var(--f-display);font-weight:800;font-size:1.9rem;line-height:1.1}
+.davg small{font-size:.85rem;font-weight:600;color:var(--muted);margin-left:5px}
+.pill{display:inline-block;font-weight:700;font-size:.82rem;border-radius:999px;padding:2px 10px;background:var(--surface-2)}
+.range{position:relative;height:10px;background:var(--bar-bg);border-radius:6px;margin-top:6px}
+.range .seg{position:absolute;top:0;bottom:0;border-radius:6px;background:var(--good);opacity:.45}
+.range .seg.neg{background:var(--bad)}
+.range .avg{position:absolute;top:-3px;width:16px;height:16px;border-radius:50%;background:var(--gold);border:3px solid var(--surface);margin-left:-8px}
+.rlab{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted)}
+
+label.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+label.f>span{font-size:.8rem;font-weight:700;color:var(--muted)}
+input[type=text],select{width:100%;min-width:0;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:600 .95rem var(--f-body)}
+select{width:auto;max-width:100%}
+input::placeholder{color:var(--muted);opacity:.7}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible,.btn:focus-within,.sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:380px){.grid2{grid-template-columns:minmax(0,1fr)}}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chips:empty{display:none}
+.chip{border:1px solid var(--line);background:var(--surface-2);color:var(--ink);font:700 .86rem var(--f-body);padding:6px 14px;border-radius:999px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.timer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface-2);border-radius:16px;padding:12px 16px}
+.tdisp{font-family:var(--f-display);font-weight:800;font-size:2.4rem;line-height:1.05}
+.focus .timer{justify-content:center;text-align:center;padding:22px 16px}
+.focus .tdisp{font-size:4.2rem}
+.focus #dungeonF{grid-column:1/-1}
+
+/* éléments masqués pendant un run (nf) ou visibles seulement pendant un run (fo) */
+.stack{display:flex;flex-direction:column;gap:8px}
+.focus .nf{display:none}
+#runForm:not(.focus) .fo{display:none}
+
+.btn{display:inline-block;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);font:700 .92rem var(--f-body);padding:10px 16px;border-radius:999px;cursor:pointer;text-align:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--bad)}
+.btn.armed{background:var(--bad);color:#fff;border-color:var(--bad)}
+
+.preview{background:var(--surface-2);border-radius:16px;padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:baseline}
+.preview .row-total{grid-column:1/-1;border-top:1px solid var(--line);padding-top:10px;margin-top:4px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.preview .big{font-family:var(--f-display);font-size:1.7rem;font-weight:800}
+.preview .alert{grid-column:1/-1;font-size:.88rem;font-weight:700;color:var(--bad)}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;vertical-align:middle;margin-right:6px}
+.legend .sw-bar{width:12px;height:12px;border-radius:3px;background:var(--good)}
+.legend .sw-line{width:18px;height:0;border-top:3px solid var(--gold);border-radius:2px}
+.chart{width:100%;height:auto;display:block}
+.chart text{font:600 10px var(--f-body);fill:var(--muted)}
+.chart .axis{stroke:var(--line);stroke-width:1}
+.chart .zero{stroke:var(--muted);stroke-width:1;opacity:.5}
+.chart .bp{fill:var(--good);opacity:.8} .chart .bn{fill:var(--bad);opacity:.8}
+.chart .avgl{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.chart .avgd{fill:var(--gold)}
+
+.cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.1fr);gap:0 12px;align-items:center}
+.cmp select{width:100%}
+.cmp>div,.cmp #cmpRows>div{padding:9px 0;border-top:1px solid var(--line);min-width:0;overflow-wrap:anywhere}
+.cmp .h{border-top:0;padding-top:0}
+.cmp .lab{color:var(--muted);font-size:.86rem}
+.cmp .v{font-family:var(--f-display);font-weight:700;text-align:right}
+.cmp .win{color:var(--gold)}
+
+.hist{display:flex;flex-direction:column;gap:10px}
+.run{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.run .name{font-family:var(--f-display);font-weight:700;font-size:1.05rem;overflow-wrap:anywhere}
+.run .profit{font-family:var(--f-display);font-weight:800;font-size:1.2rem;text-align:right}
+.run .meta{grid-column:1/-1;color:var(--muted);font-size:.84rem}
+.run .note{grid-column:1/-1;font-size:.88rem;font-style:italic}
+.run .foot{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.run .foot .btn{padding:4px 12px;font-size:.8rem}
+.tag{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted);font-family:var(--f-body);font-weight:700}
+.tag.low{color:var(--bad);border-color:var(--bad)}
+
+.opts{display:flex;flex-direction:column}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;cursor:pointer}
+.opt+.opt{border-top:1px solid var(--line)}
+.opt strong{display:block;font-size:.95rem}
+.opt small{display:block;color:var(--muted);font-size:.82rem}
+.sw{appearance:none;-webkit-appearance:none;flex:none;width:44px;height:26px;margin:0;border-radius:999px;background:var(--bar-bg);border:1px solid var(--line);position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
+.sw:checked{background:var(--accent);border-color:var(--accent)}
+.sw:checked::after{transform:translateX(18px);background:var(--accent-ink)}
+
+.empty{color:var(--muted);text-align:center;padding:26px 14px;border:1px dashed var(--line);border-radius:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;max-width:calc(100vw - 32px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:700;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast,.sw::after{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <svg width="44" height="46" viewBox="0 0 64 68" aria-hidden="true">
+      <defs>
+        <radialGradient id="egg" cx="36%" cy="30%" r="80%"><stop offset="0" stop-color="#9af0c4"/><stop offset=".55" stop-color="#2fb27a"/><stop offset="1" stop-color="#17704c"/></radialGradient>
+      </defs>
+      <path d="M32 3C46 3 57 28 57 42C57 56 46 65 32 65C18 65 7 56 7 42C7 28 18 3 32 3Z" fill="url(#egg)"/>
+      <ellipse cx="25" cy="24" rx="6" ry="10" fill="#fff" opacity=".35" transform="rotate(18 25 24)"/>
+    </svg>
+    <div class="grow">
+      <h1>Carnet de Farm</h1>
+      <p class="muted small">Ce que tes donjons te rapportent vraiment</p>
+    </div>
+    <span class="badge" id="saveBadge" role="status"></span>
+  </header>
+
+  <div id="banner"></div>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="bilan" aria-selected="true">Bilan</button>
+    <button role="tab" data-tab="run" aria-selected="false">Nouveau run</button>
+    <button role="tab" data-tab="histo" aria-selected="false">Historique</button>
+    <button role="tab" data-tab="data" aria-selected="false">Réglages</button>
+  </nav>
+
+  <!-- BILAN -->
+  <section class="panel" id="p-bilan">
+    <div class="card hero" id="hero"></div>
+    <div>
+      <div class="card-head" style="margin:0 2px 10px"><h2>Tes donjons</h2><span class="muted small">du plus rentable au moins rentable</span></div>
+      <div class="dgrid" id="dgrid"></div>
+    </div>
+    <div class="card" id="cmpWrap" hidden>
+      <details id="cmpBox">
+        <summary><span class="sum"><h2>Comparer deux donjons</h2></span></summary>
+        <div class="fold-body">
+          <div class="cmp">
+            <div class="h"></div>
+            <div class="h"><select id="cmpA" aria-label="Premier donjon"></select></div>
+            <div class="h"><select id="cmpB" aria-label="Second donjon"></select></div>
+            <div id="cmpRows" style="display:contents"></div>
+          </div>
+        </div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Run après run</h2>
+        <label class="small muted" style="display:flex;gap:8px;align-items:center">Donjon <select id="chartDungeon"></select></label>
+      </div>
+      <div class="legend"><span><i class="sw-bar"></i>Profit du run</span><span><i class="sw-line"></i>Moyenne cumulée</span></div>
+      <div id="chart"></div>
+    </div>
+  </section>
+
+  <!-- NOUVEAU RUN -->
+  <section class="panel" id="p-run" hidden>
+    <form class="card" id="runForm" autocomplete="off">
+      <div class="nf stack" id="chipsWrap">
+        <div class="cap" id="redoCap" hidden>Refaire le même run</div>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="timer">
+        <div>
+          <div class="cap"><span class="fo">Run en cours · </span>Chrono</div>
+          <div class="tdisp n" id="tdisp">00:00</div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn primary" id="tToggle" data-act="t-toggle">Démarrer</button>
+          <button type="button" class="btn nf" data-act="t-reset">Remettre à zéro</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <label class="f" id="dungeonF"><span>Donjon</span><input type="text" id="f-dungeon" list="dl-dungeons" placeholder="Ex. Bouftou Royal" required></label>
+        <label class="f nf"><span>Durée du run (minutes)</span><input type="text" id="f-minutes" class="n" inputmode="decimal" placeholder="Rempli par le chrono"></label>
+      </div>
+
+      <details class="foldline nf" id="costBox">
+        <summary><span class="sum"><strong>Coûts</strong><span class="muted n" id="costSum"></span></span></summary>
+        <div class="fold-body">
+          <p class="muted small" style="margin:0">Tape des nombres ou des raccourcis : 9500, 9,5k, 1,2m.</p>
+          <div class="grid4">
+            <label class="f"><span>Clés (qté)</span><input type="text" class="n" id="f-keys" inputmode="numeric" value="1"></label>
+            <label class="f"><span>Prix d'une clé</span><input type="text" class="n" id="f-keyPrice" inputmode="numeric" placeholder="0"></label>
+            <label class="f"><span>Pierres d'âme (qté)</span><input type="text" class="n" id="f-stones" inputmode="numeric" value="1"></label>
+            <label class="f"><span>Prix d'une pierre</span><input type="text" class="n" id="f-stonePrice" inputmode="numeric" placeholder="0"></label>
+          </div>
+        </div>
+      </details>
+
+      <div>
+        <h2 style="margin-bottom:10px">Butin</h2>
+        <div class="grid2">
+          <label class="f"><span>Valeur estimée des ressources</span><input type="text" class="n" id="f-loot" inputmode="numeric" placeholder="0"></label>
+          <label class="f nf"><span>Dont gardé pour tes métiers</span><input type="text" class="n" id="f-kept" inputmode="numeric" placeholder="0"></label>
+          <label class="f"><span>Prix de vente de la pierre d'âme</span><input type="text" class="n" id="f-stoneSell" inputmode="numeric" placeholder="0"></label>
+          <label class="f nf"><span>Pierres d'âme vendues (qté)</span><input type="text" class="n" id="f-stoneSold" inputmode="numeric" value="1"></label>
+        </div>
+      </div>
+
+      <label class="f" id="noteF"><span>Note (facultatif)</span><input type="text" id="f-note" placeholder="Ex. drop de l'œuf, lag, 2 joueurs…"></label>
+
+      <div class="preview" id="preview" aria-live="polite"></div>
+
+      <div class="actions">
+        <button type="submit" class="btn primary nf">Enregistrer le run</button>
+        <button type="button" class="btn primary fo" data-act="finish">Terminer et enregistrer</button>
+        <button type="button" class="btn fo" data-act="show-all">Tous les champs</button>
+        <button type="button" class="btn nf" data-act="reset-form">Vider</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- HISTORIQUE -->
+  <section class="panel" id="p-histo" hidden>
+    <div class="hist" id="hist"></div>
+  </section>
+
+  <!-- RÉGLAGES -->
+  <section class="panel" id="p-data" hidden>
+    <div class="card">
+      <h2>Fonctions</h2>
+      <div class="opts">
+        <label class="opt"><span><strong>Mode run</strong><small>Pendant que le chrono tourne, l'écran se réduit à l'essentiel.</small></span><input class="sw" type="checkbox" data-opt="runMode"></label>
+        <label class="opt"><span><strong>Rappeler les derniers prix</strong><small>Clés et pierres d'âme se remplissent avec les derniers prix utilisés.</small></span><input class="sw" type="checkbox" data-opt="rememberPrices"></label>
+        <label class="opt"><span><strong>Comparer deux donjons</strong><small>Une fiche côte à côte dans le Bilan.</small></span><input class="sw" type="checkbox" data-opt="compare"></label>
+        <label class="opt"><span><strong>Alerte run décevant</strong><small>Prévient quand un run est nettement sous la moyenne de son donjon.</small></span><input class="sw" type="checkbox" data-opt="alert"></label>
+        <label class="opt"><span><strong>Note de run</strong><small>Une ligne libre à garder avec chaque run.</small></span><input class="sw" type="checkbox" data-opt="notes"></label>
+        <label class="opt"><span><strong>Son du chrono</strong><small>Un petit son quand le run dépasse la durée moyenne de son donjon.</small></span><input class="sw" type="checkbox" data-opt="sound"></label>
+      </div>
+      <div class="actions"><button class="btn" type="button" data-act="test-sound">Tester le son</button></div>
+    </div>
+    <div class="card">
+      <h2>Taxe de l'hôtel des ventes</h2>
+      <label class="f" style="max-width:260px"><span>Taxe de mise en vente (%)</span><input type="text" class="n" id="s-tax" inputmode="decimal"></label>
+      <p class="muted small" style="margin:0">Appliquée à la part du butin que tu vends, au moment où le run est enregistré. Vérifie le taux affiché dans l'hôtel des ventes et corrige-le ici si besoin.</p>
+    </div>
+    <div class="card">
+      <h2>Sauvegarde</h2>
+      <p class="small" style="margin:0" id="saveInfo"></p>
+      <p class="muted small" style="margin:0" id="fileInfo"></p>
+      <div class="actions">
+        <button class="btn primary" type="button" id="btnPick" data-act="pick-file">Choisir un fichier de sauvegarde</button>
+        <button class="btn" type="button" data-act="reauth" id="btnReauth" hidden>Réactiver la copie sur fichier</button>
+        <button class="btn" type="button" data-act="export">Télécharger une copie</button>
+        <label class="btn" for="importFile">Importer une copie</label>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+      </div>
+      <div class="actions"><button class="btn danger" type="button" data-act="wipe">Tout effacer</button></div>
+    </div>
+  </section>
+</div>
+
+<datalist id="dl-dungeons"></datalist>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  var KEY='carnet-farm-v1', TIMER_KEY='carnet-farm-timer', IDB_NAME='carnet-farm', IDB_STORE='kv';
+  var state={settings:{tax:2,opts:{}},runs:[],savedAt:0};
+  var localOK=true, fh=null, fileStatus='none'; /* none | ok | needs | error */
+  var hasFS=typeof window.showSaveFilePicker==='function';
+  var wq=Promise.resolve();
+
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+
+  function parse(v){
+    if(typeof v==='number')return v;
+    var s=String(v==null?'':v).trim().toLowerCase().replace(/[\s  ]/g,'').replace(',','.');
+    if(!s)return 0;
+    var m=1;
+    if(s.slice(-1)==='k'){m=1e3;s=s.slice(0,-1)}else if(s.slice(-1)==='m'){m=1e6;s=s.slice(0,-1)}
+    var n=parseFloat(s);
+    return isNaN(n)?0:n*m;
+  }
+  var nf=new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0});
+  var nf1=new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1});
+  var fmt=function(n){return nf.format(Math.round(n))};
+  var fm=function(n){return nf1.format(Math.round(n*10)/10)};
+  var sgn=function(n){return (n>0?'+':n<0?'−':'')+fmt(Math.abs(n))};
+  var cls=function(n){return n>0?'pos':n<0?'neg':''};
+  function compact(n){
+    var a=Math.abs(n),s=n<0?'−':'';
+    if(a>=1e6)return s+(a/1e6).toFixed(1).replace('.',',')+' M';
+    if(a>=1e3)return s+Math.round(a/1e3)+' k';
+    return s+Math.round(a);
+  }
+  var dshort=function(iso){return new Date(iso).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})};
+  var newId=function(){return 'r'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36)};
+  var sameName=function(a,b){return String(a).trim().toLowerCase()===String(b).trim().toLowerCase()};
+
+  /* options : toutes actives par défaut */
+  function opt(k){var o=state.settings.opts||{};return k in o?!!o[k]:true}
+
+  /* ---------- données ---------- */
+  function normRun(o){
+    var r=Object.assign({},o);
+    ['keys','keyPrice','stones','stonePrice','minutes','extra'].forEach(function(k){r[k]=Number(r[k])||0});
+    r.loot=Number(o.loot)||0;r.kept=Number(o.kept)||0;
+    r.stoneSold=Number(o.stoneSold)||0;r.stoneSell=Number(o.stoneSell)||0;
+    r.note=typeof o.note==='string'?o.note:'';
+    r.id=String(r.id||newId());
+    r.dungeon=r.dungeon||'Sans nom';r.date=r.date||new Date().toISOString();
+    if(r.tax==null)r.tax=2;
+    return r;
+  }
+  function clean(s){
+    if(!s||!Array.isArray(s.runs))return null;
+    var st=s.settings||{};
+    return {settings:{tax:typeof st.tax==='number'?st.tax:2,opts:(st.opts&&typeof st.opts==='object')?st.opts:{}},runs:s.runs.map(normRun),savedAt:Number(s.savedAt)||0};
+  }
+  function seed(){
+    var d=function(daysAgo,h,m){var x=new Date();x.setDate(x.getDate()-daysAgo);x.setHours(h,m,0,0);return x.toISOString()};
+    var R=function(id,ago,h,m,dj,k,sp,mins,loot,kept,ss,note){return {id:id,example:true,date:d(ago,h,m),dungeon:dj,keys:1,keyPrice:k,stones:1,stonePrice:sp,minutes:mins,tax:2,extra:0,loot:loot,kept:kept||0,stoneSold:1,stoneSell:ss,note:note||''}};
+    return {settings:{tax:2,opts:{}},savedAt:0,runs:[
+      R('ex1',5,20,10,'Bouftou Royal',9500,4200,14,17000,0,9000),
+      R('ex2',4,20,40,'Bouftou Royal',9500,4200,12.5,15000,3000,8500),
+      R('ex3',3,21,5,'Dragon Cochon',38000,9000,31,52000,0,21000,'Drop de l\'œuf'),
+      R('ex4',2,19,30,'Tofu Royal',7000,3000,9,9000,0,5500),
+      R('ex5',2,22,0,'Dragon Cochon',38000,9000,28,41000,0,18000),
+      R('ex6',1,18,0,'Bouftou Royal',9500,4200,13,19000,0,10000),
+      R('ex7',1,21,0,'Tofu Royal',7000,3000,10,7500,0,4500),
+      R('ex8',0,9,0,'Bouftou Royal',9500,4200,12,9000,0,5000,'Mauvais drop')
+    ].map(normRun)};
+  }
+  function loadLocal(){
+    try{
+      var raw=localStorage.getItem(KEY);
+      if(raw){var d=clean(JSON.parse(raw));if(d){state=d;return}}
+    }catch(e){localOK=false}
+    state=seed();
+  }
+  function storeLocal(){
+    try{localStorage.setItem(KEY,JSON.stringify(state));localOK=true}catch(e){localOK=false}
+  }
+  function persist(){
+    state.savedAt=Date.now();
+    storeLocal();
+    if(fh&&fileStatus==='ok')wq=wq.then(writeFile);
+    renderBadge();
+  }
+
+  /* ---------- fichier de sauvegarde (Chrome / Edge) ---------- */
+  function idb(){return new Promise(function(res,rej){var q=indexedDB.open(IDB_NAME,1);q.onupgradeneeded=function(){q.result.createObjectStore(IDB_STORE)};q.onsuccess=function(){res(q.result)};q.onerror=function(){rej(q.error)}})}
+  function idbGet(k){return idb().then(function(d){return new Promise(function(res,rej){var r=d.transaction(IDB_STORE).objectStore(IDB_STORE).get(k);r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}})})}
+  function idbSet(k,v){return idb().then(function(d){return new Promise(function(res,rej){var t=d.transaction(IDB_STORE,'readwrite');t.objectStore(IDB_STORE).put(v,k);t.oncomplete=function(){res()};t.onerror=function(){rej(t.error)}})})}
+
+  async function writeFile(){
+    try{
+      var w=await fh.createWritable();
+      await w.write(JSON.stringify(state,null,1));
+      await w.close();
+      fileStatus='ok';
+    }catch(e){
+      fileStatus=(e&&e.name==='NotAllowedError')?'needs':'error';
+    }
+    renderSaveInfo();renderBanner();renderBadge();
+  }
+  async function pullFile(){
+    var f=await fh.getFile(),t=await f.text();
+    if(!t.trim())return false;
+    var d;try{d=clean(JSON.parse(t))}catch(e){return false}
+    if(d&&d.savedAt>state.savedAt){state=d;storeLocal();return true}
+    return false;
+  }
+  async function syncFile(){
+    try{
+      var adopted=await pullFile();
+      fileStatus='ok';
+      if(adopted){toast('Données retrouvées dans ton fichier');refreshAll()}
+      else await writeFile();
+    }catch(e){fileStatus='error'}
+    renderSaveInfo();renderBanner();renderBadge();
+  }
+  async function initFile(){
+    if(!hasFS)return;
+    try{fh=await idbGet('fh')}catch(e){fh=null}
+    if(!fh)return;
+    try{
+      var p=await fh.queryPermission({mode:'readwrite'});
+      if(p==='granted')await syncFile();else fileStatus='needs';
+    }catch(e){fileStatus='error'}
+    renderSaveInfo();renderBanner();renderBadge();
+  }
+  async function pickFile(){
+    var h;
+    try{h=await window.showSaveFilePicker({suggestedName:'carnet-farm-sauvegarde.json',types:[{description:'Sauvegarde du carnet',accept:{'application/json':['.json']}}]})}catch(e){return}
+    fh=h;
+    try{await idbSet('fh',h)}catch(e){}
+    await syncFile();
+    toast('Copie automatique sur fichier activée');
+  }
+  async function reauth(){
+    if(!fh)return;
+    try{
+      var p=await fh.requestPermission({mode:'readwrite'});
+      if(p==='granted')await syncFile();
+    }catch(e){}
+  }
+
+  function exportCopy(){
+    var blob=new Blob([JSON.stringify(state,null,1)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download='carnet-farm-sauvegarde.json';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href)},1500);
+    toast('Copie téléchargée');
+  }
+  function importCopy(file){
+    if(!file)return;
+    var fr=new FileReader();
+    fr.onload=function(){
+      try{
+        var d=clean(JSON.parse(fr.result));
+        if(!d)throw new Error('format');
+        var byId={};
+        state.runs.forEach(function(r){if(!r.example)byId[r.id]=r});
+        d.runs.forEach(function(r){byId[r.id]=r});
+        state.runs=Object.keys(byId).map(function(k){return byId[k]});
+        state.settings=d.settings;
+        persist();refreshAll();toast('Copie importée');
+      }catch(e){toast('Ce fichier n\'est pas une sauvegarde valide')}
+    };
+    fr.readAsText(file);
+  }
+
+  /* ---------- calculs ---------- */
+  function calc(r,taxPct){
+    var t=(taxPct!=null?taxPct:(r.tax!=null?r.tax:state.settings.tax))/100;
+    var cost=r.keys*r.keyPrice+r.stones*r.stonePrice;
+    var kept=Math.min(Math.max(r.kept||0,0),r.loot||0),res=(r.loot||0)-kept;
+    var stone=(r.stoneSold||0)*(r.stoneSell||0),gross=res+stone;
+    var taxAmt=gross*t,revenue=gross-taxAmt,profit=revenue-cost,h=r.minutes/60;
+    return {cost:cost,res:res,stone:stone,gross:gross,taxAmt:taxAmt,revenue:revenue,profit:profit,kept:kept,kph:h>0?profit/h:0};
+  }
+  function hueOf(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return h}
+
+  function aggregate(){
+    var by={},gmin=0,gmax=0;
+    state.runs.forEach(function(r){
+      var c=calc(r),o=by[r.dungeon]||(by[r.dungeon]={name:r.dungeon,n:0,p:0,h:0,m:0,cost:0,min:Infinity,max:-Infinity,sn:0,ss:0});
+      o.n++;o.p+=c.profit;o.h+=r.minutes/60;o.m+=r.minutes;o.cost+=c.cost;
+      if(r.stoneSold>0&&r.stoneSell>0){o.sn+=r.stoneSold;o.ss+=r.stoneSold*r.stoneSell}
+      if(c.profit<o.min)o.min=c.profit;if(c.profit>o.max)o.max=c.profit;
+      if(c.profit<gmin)gmin=c.profit;if(c.profit>gmax)gmax=c.profit;
+    });
+    var list=Object.keys(by).map(function(k){var o=by[k];o.avg=o.p/o.n;o.kph=o.h>0?o.p/o.h:0;return o}).sort(function(a,b){return b.kph-a.kph});
+    return {list:list,gmin:gmin,gmax:gmax};
+  }
+  /* alerte : comparaison avec les autres runs du même donjon */
+  function verdict(profit,name,excludeId){
+    var n=0,s=0;
+    state.runs.forEach(function(r){if(r.id!==excludeId&&sameName(r.dungeon,name)){n++;s+=calc(r).profit}});
+    if(n<3)return null;
+    var avg=s/n;if(avg<=0)return null;
+    var d=(profit-avg)/avg;
+    if(d<=-0.3)return {kind:'low',pct:Math.round(-d*100)};
+    if(d>=0.3)return {kind:'high',pct:Math.round(d*100)};
+    return null;
+  }
+  function avgMinutes(name){
+    var n=0,s=0;
+    state.runs.forEach(function(r){if(r.minutes>0&&sameName(r.dungeon,name)){n++;s+=r.minutes}});
+    return n?s/n:0;
+  }
+
+  /* ---------- rendu : bandeaux et état ---------- */
+  function renderBadge(){
+    var b=$('#saveBadge');
+    if(!localOK&&fileStatus!=='ok'){b.textContent='Non sauvegardé';b.className='badge warn';return}
+    b.textContent=fileStatus==='ok'?'Sauvegarde auto · navigateur + fichier':'Sauvegarde auto · navigateur';
+    b.className='badge ok';
+  }
+  function renderBanner(){
+    var h='';
+    if(state.runs.some(function(r){return r.example}))h+='<div class="banner"><p class="small"><strong>Exemples affichés.</strong> Ces runs servent à montrer le fonctionnement. Efface-les avant de commencer.</p><button class="btn" data-act="clear-examples">Effacer les exemples</button></div>';
+    if(fileStatus==='needs')h+='<div class="banner warn"><p class="small"><strong>La copie sur fichier est en pause.</strong> Clique pour la reprendre, une seule fois par ouverture.</p><button class="btn primary" data-act="reauth">Réactiver</button></div>';
+    if(!localOK&&fileStatus!=='ok')h+='<div class="banner warn"><p class="small"><strong>Ton navigateur refuse de garder les données.</strong> Va dans Réglages et choisis un fichier de sauvegarde, ou télécharge une copie.</p></div>';
+    $('#banner').innerHTML=h;
+  }
+  function renderSaveInfo(){
+    $('#saveInfo').textContent='Chaque run est enregistré automatiquement dans ce navigateur, sur cet ordinateur, même sans internet. Fermer la page n\'efface rien.';
+    var fi=$('#fileInfo'),pick=$('#btnPick'),re=$('#btnReauth');
+    re.hidden=true;pick.hidden=!hasFS;
+    if(!hasFS){fi.textContent='Ce navigateur ne sait pas écrire dans un fichier tout seul. Télécharge une copie de temps en temps pour avoir une deuxième sauvegarde.';return}
+    if(fileStatus==='ok'){fi.textContent='Une deuxième copie est mise à jour automatiquement dans ton fichier « '+((fh&&fh.name)||'sauvegarde')+' ».';pick.textContent='Changer de fichier'}
+    else if(fileStatus==='needs'){fi.textContent='La copie sur fichier « '+((fh&&fh.name)||'sauvegarde')+' » attend ton accord pour reprendre.';re.hidden=false;pick.textContent='Changer de fichier'}
+    else if(fileStatus==='error'){fi.textContent='La copie sur fichier n\'a pas marché. Choisis le fichier à nouveau.';pick.textContent='Choisir un fichier de sauvegarde'}
+    else{fi.textContent='Conseil : choisis un fichier pour garder une deuxième copie automatique, au cas où tu vides les données du navigateur.';pick.textContent='Choisir un fichier de sauvegarde'}
+  }
+  function renderOpts(){
+    $$('[data-opt]').forEach(function(el){el.checked=opt(el.dataset.opt)});
+    $('#noteF').hidden=!opt('notes');
+  }
+  function refreshLists(){
+    var ds={};state.runs.forEach(function(r){ds[r.dungeon]=1});
+    $('#dl-dungeons').innerHTML=Object.keys(ds).map(function(n){return '<option value="'+esc(n)+'">'}).join('');
+    var sel=$('#chartDungeon'),cur=sel.value;
+    sel.innerHTML='<option value="">Tous</option>'+Object.keys(ds).sort().map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>'}).join('');
+    sel.value=ds[cur]?cur:'';
+  }
+  function renderChips(){
+    var seen={},names=[];
+    state.runs.slice().sort(function(a,b){return a.date<b.date?1:-1}).forEach(function(r){if(!seen[r.dungeon]){seen[r.dungeon]=1;names.push(r.dungeon)}});
+    names=names.slice(0,6);
+    $('#redoCap').hidden=!names.length;
+    $('#chips').innerHTML=names.map(function(n){return '<button type="button" class="chip" data-act="redo" data-name="'+esc(n)+'">'+esc(n)+'</button>'}).join('');
+  }
+
+  /* ---------- rendu : bilan ---------- */
+  function emptyBox(){
+    return '<div class="empty"><svg width="38" height="40" viewBox="0 0 64 68" aria-hidden="true"><path d="M32 3C46 3 57 28 57 42C57 56 46 65 32 65C18 65 7 56 7 42C7 28 18 3 32 3Z" fill="none" stroke="currentColor" stroke-width="3" opacity=".5"/></svg><div>Ton carnet est vide pour l\'instant.<br>Enregistre ton premier run pour voir tes moyennes.</div><button class="btn primary" data-act="goto-run">Noter un run</button></div>';
+  }
+  function renderHero(){
+    var el=$('#hero');
+    if(!state.runs.length){el.innerHTML=emptyBox();return}
+    var n=state.runs.length,p=0,h=0,m=0,k=0;
+    state.runs.forEach(function(r){var c=calc(r);p+=c.profit;h+=r.minutes/60;m+=r.minutes;k+=c.kept});
+    var avg=p/n,kph=h>0?p/h:0;
+    el.innerHTML='<div class="cap">Un run te rapporte en moyenne</div>'+
+      '<div class="hero-num '+cls(avg)+'">'+sgn(avg)+'<small>kamas</small></div>'+
+      '<div class="hero-sub">soit <strong class="'+cls(kph)+'">'+sgn(kph)+' kamas par heure</strong>, sur '+n+' run'+(n>1?'s':'')+'</div>'+
+      '<div class="minis">'+
+      '<div class="mini"><div class="cap">Profit total</div><div class="v '+cls(p)+'">'+sgn(p)+'</div></div>'+
+      '<div class="mini"><div class="cap">Durée moyenne</div><div class="v">'+fm(m/n)+' min</div></div>'+
+      '<div class="mini"><div class="cap">Stock gardé</div><div class="v gold">'+fmt(k)+'</div></div></div>';
+  }
+  function renderDungeons(){
+    var el=$('#dgrid');
+    if(!state.runs.length){el.innerHTML='<div style="grid-column:1/-1" class="muted small">Tes donjons apparaîtront ici dès le premier run.</div>';return}
+    var ag=aggregate(),gmin=ag.gmin,gmax=ag.gmax;
+    if(gmax===gmin)gmax=gmin+1;
+    var pos=function(v){return (v-gmin)/(gmax-gmin)*100};
+    el.innerHTML=ag.list.map(function(o){
+      var hue=hueOf(o.name),left=pos(o.min),w=Math.max(pos(o.max)-left,2.5);
+      return '<article class="dcard">'+
+        '<div class="dhead"><div class="gem" style="background:radial-gradient(circle at 32% 28%,hsl('+hue+' 75% 78%),hsl('+hue+' 62% 52%))">'+esc(o.name.charAt(0).toUpperCase())+'</div>'+
+        '<div style="min-width:0"><div class="dname">'+esc(o.name)+'</div><div class="muted small">'+o.n+' run'+(o.n>1?'s':'')+'</div></div></div>'+
+        '<div><div class="cap">Moyenne par run</div><div class="davg '+cls(o.avg)+'">'+sgn(o.avg)+'<small>kamas</small></div></div>'+
+        '<div><span class="pill '+cls(o.kph)+'">'+sgn(o.kph)+' kamas/h</span></div>'+
+        '<div class="small muted">'+fm(o.m/o.n)+' min · coût '+fmt(o.cost/o.n)+(o.sn?' · pierre '+fmt(o.ss/o.sn):'')+'</div>'+
+        '<div><div class="range" title="Du pire au meilleur run"><div class="seg'+(o.max<0?' neg':'')+'" style="left:'+left.toFixed(1)+'%;width:'+w.toFixed(1)+'%"></div><div class="avg" style="left:'+Math.min(Math.max(pos(o.avg),1),99).toFixed(1)+'%"></div></div>'+
+        '<div class="rlab" style="margin-top:6px"><span>pire '+sgn(o.min)+'</span><span>meilleur '+sgn(o.max)+'</span></div></div>'+
+        '</article>';
+    }).join('');
+  }
+
+  /* comparer deux donjons */
+  var cmp={a:'',b:''};
+  function renderCompare(){
+    var wrap=$('#cmpWrap'),ag=aggregate();
+    var show=opt('compare')&&ag.list.length>=2;
+    wrap.hidden=!show;
+    if(!show)return;
+    var names=ag.list.map(function(o){return o.name});
+    if(names.indexOf(cmp.a)<0)cmp.a=names[0];
+    if(names.indexOf(cmp.b)<0||cmp.b===cmp.a)cmp.b=names.filter(function(n){return n!==cmp.a})[0];
+    var options=names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>'}).join('');
+    var sa=$('#cmpA'),sb=$('#cmpB');
+    sa.innerHTML=options;sb.innerHTML=options;sa.value=cmp.a;sb.value=cmp.b;
+    var A=ag.list.filter(function(o){return o.name===cmp.a})[0],B=ag.list.filter(function(o){return o.name===cmp.b})[0];
+    var rows=[
+      ['Moyenne par run',A.avg,B.avg,'hi',sgn],
+      ['Kamas par heure',A.kph,B.kph,'hi',sgn],
+      ['Durée moyenne',A.m/A.n,B.m/B.n,'lo',function(v){return fm(v)+' min'}],
+      ['Coût moyen',A.cost/A.n,B.cost/B.n,'lo',fmt],
+      ['Pierre d\'âme vendue',A.sn?A.ss/A.sn:null,B.sn?B.ss/B.sn:null,'hi',fmt],
+      ['Runs',A.n,B.n,null,String]
+    ];
+    $('#cmpRows').innerHTML=rows.map(function(r){
+      var a=r[1],b=r[2],win=0;
+      if(r[3]&&a!=null&&b!=null&&a!==b)win=(r[3]==='hi'?a>b:a<b)?1:2;
+      var cell=function(v,w){return '<div class="v n'+(w?' win':'')+'">'+(v==null?'—':r[4](v))+'</div>'};
+      return '<div class="lab">'+r[0]+'</div>'+cell(a,win===1)+cell(b,win===2);
+    }).join('');
+  }
+
+  function renderChart(){
+    var el=$('#chart');
+    var f=$('#chartDungeon').value;
+    var all=state.runs.filter(function(r){return !f||r.dungeon===f}).sort(function(a,b){return a.date<b.date?-1:1});
+    if(!all.length){el.innerHTML='<div class="empty">Pas encore de run à afficher.</div>';return}
+    var vals=all.map(function(r){return calc(r).profit}),avgs=[],s=0;
+    vals.forEach(function(v,i){s+=v;avgs.push(s/(i+1))});
+    var N=24,off=Math.max(vals.length-N,0);
+    var runs=all.slice(off),pv=vals.slice(off),pa=avgs.slice(off);
+    var mx=Math.max.apply(null,pv.concat(pa,[0])),mn=Math.min.apply(null,pv.concat(pa,[0]));
+    if(mx===mn)mx=mn+1;
+    var W=640,H=200,pl=48,pr=10,pt=14,pb=24,iw=W-pl-pr,ih=H-pt-pb;
+    var y=function(v){return pt+(mx-v)/(mx-mn)*ih};
+    var bw=iw/runs.length,g=Math.min(6,bw*.25);
+    var svg='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Profit de chaque run et moyenne cumulée">';
+    svg+='<line class="axis" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(mx)+'" y2="'+y(mx)+'"/><text x="'+(pl-6)+'" y="'+(y(mx)+4)+'" text-anchor="end">'+compact(mx)+'</text>';
+    if(mn<0)svg+='<line class="axis" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(mn)+'" y2="'+y(mn)+'"/><text x="'+(pl-6)+'" y="'+(y(mn)+4)+'" text-anchor="end">'+compact(mn)+'</text>';
+    svg+='<line class="zero" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(0)+'" y2="'+y(0)+'"/><text x="'+(pl-6)+'" y="'+(y(0)+4)+'" text-anchor="end">0</text>';
+    pv.forEach(function(v,i){
+      var x=pl+i*bw+g/2,h=Math.max(Math.abs(y(v)-y(0)),1),top=v>=0?y(v):y(0);
+      svg+='<rect class="'+(v>=0?'bp':'bn')+'" x="'+x.toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+Math.max(bw-g,2).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="3"><title>'+esc(runs[i].dungeon)+' : '+sgn(v)+' kamas</title></rect>';
+    });
+    var pts=pa.map(function(v,i){return (pl+i*bw+bw/2).toFixed(1)+','+y(v).toFixed(1)});
+    svg+='<polyline class="avgl" points="'+pts.join(' ')+'"/>';
+    var lx=pl+(pa.length-1)*bw+bw/2;
+    svg+='<circle class="avgd" cx="'+lx.toFixed(1)+'" cy="'+y(pa[pa.length-1]).toFixed(1)+'" r="4"/>';
+    svg+='<text x="'+pl+'" y="'+(H-6)+'">'+dshort(runs[0].date)+'</text><text x="'+(W-pr)+'" y="'+(H-6)+'" text-anchor="end">'+dshort(runs[runs.length-1].date)+'</text></svg>';
+    el.innerHTML=svg;
+  }
+
+  /* ---------- rendu : historique, réglages ---------- */
+  function renderHistory(){
+    var el=$('#hist');
+    var runs=state.runs.slice().sort(function(a,b){return a.date<b.date?1:-1});
+    if(!runs.length){el.innerHTML=emptyBox();return}
+    el.innerHTML=runs.map(function(r){
+      var c=calc(r),dt=new Date(r.date),v=opt('alert')?verdict(c.profit,r.dungeon,r.id):null;
+      return '<article class="run"><div class="name">'+esc(r.dungeon)+(r.example?' <span class="tag">exemple</span>':'')+(v&&v.kind==='low'?' <span class="tag low">sous la moyenne</span>':'')+'</div>'+
+        '<div class="profit '+cls(c.profit)+'">'+sgn(c.profit)+'</div>'+
+        '<div class="meta">'+dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+' · '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+' · '+fm(r.minutes)+' min · <span class="'+cls(c.kph)+'">'+sgn(c.kph)+' kamas/h</span></div>'+
+        '<div class="meta">coûts '+fmt(c.cost)+' · revente '+fmt(c.revenue)+(c.stone>0?' (dont pierre '+fmt(c.stone)+')':'')+(c.kept>0?' · <span class="gold">gardé '+fmt(c.kept)+'</span>':'')+'</div>'+
+        (r.note?'<div class="note">« '+esc(r.note)+' »</div>':'')+
+        '<div class="foot"><button class="btn" data-act="redo" data-name="'+esc(r.dungeon)+'">Refaire</button><button class="btn danger" data-act="del-run" data-id="'+esc(r.id)+'">Supprimer</button></div></article>';
+    }).join('');
+  }
+  function renderTax(){
+    var t=$('#s-tax');if(document.activeElement!==t)t.value=String(state.settings.tax).replace('.',',');
+  }
+
+  /* ---------- son ---------- */
+  var actx=null;
+  function audio(){
+    try{
+      actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==='suspended')actx.resume();
+    }catch(e){actx=null}
+    return actx;
+  }
+  function chime(){
+    var c=audio();if(!c)return;
+    try{
+      var t=c.currentTime;
+      [660,880].forEach(function(f,i){
+        var o=c.createOscillator(),g=c.createGain(),s=t+i*0.2;
+        o.type='sine';o.frequency.value=f;
+        g.gain.setValueAtTime(0.0001,s);
+        g.gain.exponentialRampToValueAtTime(0.16,s+0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001,s+0.6);
+        o.connect(g);g.connect(c.destination);o.start(s);o.stop(s+0.65);
+      });
+    }catch(e){}
+  }
+
+  /* ---------- chrono ---------- */
+  var T={running:false,acc:0,start:0,chimed:false}, showAll=false;
+  function tElapsed(){return T.acc+(T.running?Date.now()-T.start:0)}
+  function tSave(){try{localStorage.setItem(TIMER_KEY,JSON.stringify(T))}catch(e){}}
+  function tLoad(){
+    try{var s=JSON.parse(localStorage.getItem(TIMER_KEY)||'null');if(s&&typeof s.acc==='number')T={running:!!s.running,acc:s.acc,start:s.start||0,chimed:!!s.chimed}}catch(e){}
+  }
+  function tClock(ms){
+    var s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60,p=function(n){return (n<10?'0':'')+n};
+    return (h?h+':':'')+p(m)+':'+p(x);
+  }
+  function tRender(){
+    var ms=tElapsed();
+    $('#tdisp').textContent=tClock(ms);
+    $('#tToggle').textContent=T.running?'Pause':(ms>0?'Reprendre':'Démarrer');
+  }
+  function tSync(){
+    var ms=tElapsed();
+    if(ms<=0&&!T.running)return;
+    var v=fm(ms/60000),f=$('#f-minutes');
+    if(f.value!==v){f.value=v;updatePreview()}
+  }
+  function applyFocus(){
+    var on=opt('runMode')&&!showAll&&(T.running||tElapsed()>0);
+    $('#runForm').classList.toggle('focus',on);
+  }
+  function tToggle(){
+    if(T.running){T.acc+=Date.now()-T.start;T.running=false}
+    else{T.start=Date.now();T.running=true;if(opt('sound'))audio()}
+    tSave();tRender();tSync();applyFocus();
+  }
+  function tReset(clearField){
+    T={running:false,acc:0,start:0,chimed:false};showAll=false;tSave();tRender();applyFocus();
+    if(clearField){$('#f-minutes').value='';updatePreview()}
+  }
+  function tCheckChime(){
+    if(!opt('sound')||!T.running||T.chimed)return;
+    var name=$('#f-dungeon').value;if(!name.trim())return;
+    var target=avgMinutes(name);
+    if(target>0&&tElapsed()>=target*60000){
+      T.chimed=true;tSave();chime();toast('Durée moyenne du donjon atteinte');
+    }
+  }
+  setInterval(function(){tRender();if(T.running){tSync();tCheckChime()}},500);
+
+  /* ---------- formulaire ---------- */
+  function draft(){
+    return {
+      keys:parse($('#f-keys').value),keyPrice:parse($('#f-keyPrice').value),
+      stones:parse($('#f-stones').value),stonePrice:parse($('#f-stonePrice').value),
+      minutes:parse($('#f-minutes').value),
+      loot:parse($('#f-loot').value),kept:parse($('#f-kept').value),
+      stoneSold:parse($('#f-stoneSold').value),stoneSell:parse($('#f-stoneSell').value)
+    };
+  }
+  function updatePreview(){
+    var d=draft(),c=calc(d,state.settings.tax),name=$('#f-dungeon').value;
+    $('#costSum').textContent=c.cost>0?fmt(c.cost):'à renseigner';
+    var v=(opt('alert')&&name.trim()&&c.gross>0)?verdict(c.profit,name,null):null;
+    $('#preview').innerHTML=
+      '<span class="muted">Coûts (clés + pierres)</span><span class="n neg">−'+fmt(c.cost)+'</span>'+
+      '<span class="muted">Ressources vendues</span><span class="n">'+fmt(c.res)+'</span>'+
+      '<span class="muted">Pierres d\'âme vendues</span><span class="n">'+fmt(c.stone)+'</span>'+
+      '<span class="muted">Taxe HDV ('+String(state.settings.tax).replace('.',',')+' %)</span><span class="n neg">−'+fmt(c.taxAmt)+'</span>'+
+      (c.kept>0?'<span class="muted">Stock gardé (hors profit)</span><span class="n gold">'+fmt(c.kept)+'</span>':'')+
+      '<div class="row-total"><div><div class="cap">Profit du run</div><div class="big '+cls(c.profit)+'">'+sgn(c.profit)+'</div></div>'+
+      '<div style="text-align:right"><div class="cap">Kamas par heure</div><div class="big '+cls(c.kph)+'" style="font-size:1.25rem">'+(d.minutes>0?sgn(c.kph):'—')+'</div></div></div>'+
+      (v&&v.kind==='low'?'<div class="alert">Run décevant : '+v.pct+' % sous ta moyenne pour ce donjon.</div>':'');
+  }
+  function lastRunOf(name){
+    var best=null;
+    state.runs.forEach(function(r){if(sameName(r.dungeon,name)&&(!best||r.date>best.date))best=r});
+    return best;
+  }
+  function lastRunAny(){
+    var best=null;
+    state.runs.forEach(function(r){if(!r.example&&(!best||r.date>best.date))best=r});
+    return best;
+  }
+  function updateHint(){
+    var r=opt('rememberPrices')?lastRunOf($('#f-dungeon').value):null;
+    $('#f-stoneSell').placeholder=(r&&r.stoneSell>0)?'dernier : '+fmt(r.stoneSell):'0';
+  }
+  function fillCosts(r,force){
+    if(force||!$('#f-keyPrice').value)$('#f-keyPrice').value=r.keyPrice||'';
+    if(force||!$('#f-stonePrice').value)$('#f-stonePrice').value=r.stonePrice||'';
+    $('#f-keys').value=r.keys;$('#f-stones').value=r.stones;
+  }
+  function openCostsIfEmpty(){
+    $('#costBox').open=!(parse($('#f-keyPrice').value)>0||parse($('#f-stonePrice').value)>0);
+  }
+  function resetForm(keepContext){
+    if(!keepContext){['#f-dungeon','#f-keyPrice','#f-stonePrice'].forEach(function(s){$(s).value=''});$('#f-keys').value='1';$('#f-stones').value='1'}
+    $('#f-minutes').value='';$('#f-loot').value='';$('#f-kept').value='';$('#f-stoneSold').value='1';$('#f-stoneSell').value='';$('#f-note').value='';
+    tReset(false);updateHint();updatePreview();
+    if(!keepContext)openCostsIfEmpty();
+  }
+  function redo(name){
+    var r=lastRunOf(name);if(!r)return;
+    $('#f-dungeon').value=r.dungeon;fillCosts(r,true);
+    $('#f-loot').value='';$('#f-kept').value='';$('#f-stoneSold').value='1';$('#f-stoneSell').value='';$('#f-note').value='';
+    if(!T.running&&T.acc===0)$('#f-minutes').value='';
+    updateHint();updatePreview();openCostsIfEmpty();showTab('run');$('#f-loot').focus();
+    toast('Coûts repris : '+r.dungeon);
+  }
+  function prefillLast(){
+    if(!opt('rememberPrices')||$('#f-dungeon').value)return;
+    var r=lastRunAny();if(!r)return;
+    $('#f-dungeon').value=r.dungeon;fillCosts(r,true);
+  }
+  function submitRun(e){
+    e.preventDefault();
+    var name=$('#f-dungeon').value.trim();
+    if(!name){$('#f-dungeon').focus();toast('Indique le donjon');return}
+    var d=draft(),id=newId();
+    var run={id:id,date:new Date().toISOString(),dungeon:name,keys:d.keys,keyPrice:d.keyPrice,stones:d.stones,stonePrice:d.stonePrice,minutes:d.minutes,tax:state.settings.tax,extra:0,loot:d.loot,kept:Math.min(d.kept,d.loot),stoneSold:d.stoneSold,stoneSell:d.stoneSell,note:$('#f-note').value.trim()};
+    state.runs.push(run);
+    persist();
+    var v=opt('alert')?verdict(calc(run).profit,name,id):null;
+    resetForm(true);refreshAll();
+    toast(v&&v.kind==='low'?'Run enregistré · '+v.pct+' % sous ta moyenne':v&&v.kind==='high'?'Run enregistré · beau run, '+v.pct+' % au-dessus de ta moyenne':'Run enregistré');
+  }
+  function finishRun(){
+    if(T.running)tToggle();
+    $('#runForm').requestSubmit();
+  }
+
+  /* ---------- global ---------- */
+  function refreshAll(){
+    renderBanner();renderBadge();renderSaveInfo();renderOpts();refreshLists();renderChips();renderHero();renderDungeons();renderCompare();renderChart();renderHistory();renderTax();updateHint();updatePreview();applyFocus();
+  }
+  var tt;
+  function toast(t){var el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){el.classList.remove('show')},2600)}
+  function showTab(t){
+    $$('.tabs button').forEach(function(x){x.setAttribute('aria-selected',x.dataset.tab===t?'true':'false')});
+    ['bilan','run','histo','data'].forEach(function(k){$('#p-'+k).hidden=(k!==t)});
+  }
+  $$('.tabs button').forEach(function(b){b.addEventListener('click',function(){showTab(b.dataset.tab)})});
+
+  $('#runForm').addEventListener('submit',submitRun);
+  ['#f-keys','#f-keyPrice','#f-stones','#f-stonePrice','#f-minutes','#f-loot','#f-kept','#f-stoneSold','#f-stoneSell'].forEach(function(s){$(s).addEventListener('input',updatePreview)});
+  $('#f-dungeon').addEventListener('input',function(){updateHint();updatePreview()});
+  $('#f-dungeon').addEventListener('change',function(){
+    var r=opt('rememberPrices')?lastRunOf(this.value):null;
+    if(r){fillCosts(r,false);openCostsIfEmpty()}
+    updateHint();updatePreview();
+  });
+  $('#chartDungeon').addEventListener('change',renderChart);
+  $('#cmpA').addEventListener('change',function(){cmp.a=this.value;renderCompare()});
+  $('#cmpB').addEventListener('change',function(){cmp.b=this.value;renderCompare()});
+  $('#s-tax').addEventListener('change',function(){
+    var v=parse(this.value);if(v<0||v>100)v=2;this.value=String(v).replace('.',',');
+    state.settings.tax=v;persist();updatePreview();toast('Taxe mise à jour');
+  });
+  document.addEventListener('change',function(e){
+    var k=e.target.dataset&&e.target.dataset.opt;if(!k)return;
+    state.settings.opts=state.settings.opts||{};
+    state.settings.opts[k]=e.target.checked;
+    persist();refreshAll();
+    if(k==='sound'&&e.target.checked){audio();chime()}
+  });
+  $('#importFile').addEventListener('change',function(){importCopy(this.files&&this.files[0]);this.value=''});
+
+  var armTimer;
+  function arm(btn,label,fn){
+    if(btn.classList.contains('armed')){fn();return}
+    var old=btn.textContent;btn.classList.add('armed');btn.textContent=label;
+    clearTimeout(armTimer);armTimer=setTimeout(function(){btn.classList.remove('armed');btn.textContent=old},3000);
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]');if(!b)return;
+    var a=b.dataset.act;
+    if(a==='reset-form'){resetForm(false)}
+    else if(a==='goto-run'){showTab('run');$('#f-dungeon').focus()}
+    else if(a==='t-toggle'){tToggle()}
+    else if(a==='t-reset'){tReset(true)}
+    else if(a==='finish'){finishRun()}
+    else if(a==='show-all'){showAll=true;applyFocus()}
+    else if(a==='redo'){redo(b.dataset.name)}
+    else if(a==='test-sound'){chime()}
+    else if(a==='del-run'){arm(b,'Confirmer',function(){state.runs=state.runs.filter(function(r){return r.id!==b.dataset.id});persist();refreshAll()})}
+    else if(a==='clear-examples'){state.runs=state.runs.filter(function(r){return !r.example});persist();refreshAll();toast('Exemples effacés')}
+    else if(a==='pick-file'){pickFile()}
+    else if(a==='reauth'){reauth()}
+    else if(a==='export'){exportCopy()}
+    else if(a==='wipe'){arm(b,'Confirmer : tout effacer',function(){state.runs=[];persist();refreshAll();toast('Carnet vidé')})}
+  });
+
+  /* ---------- démarrage ---------- */
+  loadLocal();
+  tLoad();tRender();tSync();
+  prefillLast();
+  refreshAll();
+  openCostsIfEmpty();
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+  initFile();
+})();
+</script>
+</body>
+</html>
